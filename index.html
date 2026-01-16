@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Tetris Battle">
+    <meta name="theme-color" content="#0f0f23">
+    <meta name="description" content="Tetris Battle - Đối kháng Tetris Online 2 người">
+
+    <title>Tetris Battle - Online Multiplayer</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- iOS Icons -->
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Socket.io -->
+    <script src="/socket.io/socket.io.js"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <!-- Background Effects -->
+    <div class="bg-effects">
+        <div class="gradient-orb orb-1"></div>
+        <div class="gradient-orb orb-2"></div>
+        <div class="gradient-orb orb-3"></div>
+        <div class="grid-pattern"></div>
+    </div>
+
+    <!-- Mode Selection Screen -->
+    <div class="screen" id="modeScreen">
+        <div class="mode-container">
+            <div class="mode-header">
+                <div class="mode-logo">
+                    <span class="logo-icon">⬢</span>
+                    <h1>TETRIS BATTLE</h1>
+                </div>
+                <p class="mode-subtitle">Đối kháng Tetris Online</p>
+            </div>
+
+            <div class="mode-options">
+                <button class="mode-card" id="soloModeBtn">
+                    <div class="mode-icon">🎮</div>
+                    <div class="mode-info">
+                        <h3>Chơi Solo</h3>
+                        <p>Luyện tập một mình</p>
+                    </div>
+                </button>
+
+                <button class="mode-card" id="createRoomBtn">
+                    <div class="mode-icon">⚔️</div>
+                    <div class="mode-info">
+                        <h3>Tạo Phòng</h3>
+                        <p>Tạo phòng và mời bạn bè</p>
+                    </div>
+                </button>
+
+                <button class="mode-card" id="joinRoomBtn">
+                    <div class="mode-icon">🌐</div>
+                    <div class="mode-info">
+                        <h3>Vào Phòng</h3>
+                        <p>Nhập mã phòng để tham gia</p>
+                    </div>
+                </button>
+            </div>
+
+            <!-- Controls hint -->
+            <div class="controls-hint">
+                <p>⌨️ Điều khiển: ← → di chuyển | ↑ xoay | ↓ rơi nhanh | Space thả</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Waiting Room Screen -->
+    <div class="screen hidden" id="waitingScreen">
+        <div class="waiting-container">
+            <h2>⚔️ Phòng Chờ</h2>
+            <div class="room-code-display">
+                <span class="room-label">Mã phòng:</span>
+                <span class="room-code" id="roomCodeDisplay">------</span>
+                <button class="copy-btn" id="copyCodeBtn" title="Copy mã phòng">📋</button>
+            </div>
+            <div class="waiting-status">
+                <div class="spinner"></div>
+                <p>Đang chờ đối thủ...</p>
+            </div>
+            <p class="share-hint">Chia sẻ mã phòng cho bạn bè để đấu!</p>
+            <button class="btn btn-secondary" id="cancelWaitBtn">Hủy</button>
+        </div>
+    </div>
+
+    <!-- Join Room Screen -->
+    <div class="screen hidden" id="joinScreen">
+        <div class="join-container">
+            <h2>🌐 Vào Phòng</h2>
+            <p>Nhập mã phòng 6 ký tự</p>
+            <input type="text" class="room-input" id="roomCodeInput" maxlength="6" placeholder="VD: ABC123"
+                autocomplete="off">
+            <p class="error-message hidden" id="joinError"></p>
+            <div class="join-actions">
+                <button class="btn btn-secondary" id="backToModeBtn">Quay lại</button>
+                <button class="btn btn-primary" id="confirmJoinBtn">Vào phòng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div class="screen hidden" id="gameScreen">
+        <div class="game-container">
+            <!-- Header -->
+            <header class="game-header">
+                <button id="backBtn" class="icon-btn" aria-label="Quay lại">←</button>
+                <h1 class="logo">TETRIS BATTLE</h1>
+                <div class="online-badge hidden" id="onlineBadge">
+                    <span class="badge-dot"></span>
+                    <span id="roomCodeBadge">ONLINE</span>
+                </div>
+            </header>
+
+            <!-- Game Boards Container -->
+            <div class="boards-container">
+                <!-- My Board -->
+                <div class="player-section my-section">
+                    <div class="player-info">
+                        <span class="player-name">Bạn</span>
+                        <span class="player-score" id="myScore">0</span>
+                    </div>
+                    <div class="game-area">
+                        <div class="side-panel left-panel">
+                            <div class="panel-box">
+                                <span class="panel-label">HOLD</span>
+                                <canvas id="holdCanvas" width="80" height="80"></canvas>
+                            </div>
+                        </div>
+                        <div class="board-frame my-frame">
+                            <canvas id="myBoard" width="200" height="400"></canvas>
+                            <div class="attack-indicator" id="myAttack"></div>
+                        </div>
+                        <div class="side-panel right-panel">
+                            <div class="panel-box">
+                                <span class="panel-label">NEXT</span>
+                                <canvas id="nextCanvas" width="80" height="160"></canvas>
+                            </div>
+                            <div class="panel-box">
+                                <span class="panel-label">LINES</span>
+                                <span class="stat-value" id="linesCleared">0</span>
+                            </div>
+                            <div class="panel-box">
+                                <span class="panel-label">LEVEL</span>
+                                <span class="stat-value" id="currentLevel">1</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VS Divider -->
+                <div class="vs-divider">
+                    <span class="vs-text">VS</span>
+                    <div class="attack-arrows">
+                        <div class="arrow-right" id="arrowRight">→</div>
+                        <div class="arrow-left" id="arrowLeft">←</div>
+                    </div>
+                </div>
+
+                <!-- Opponent Board -->
+                <div class="player-section opponent-section" id="opponentSection">
+                    <div class="player-info">
+                        <span class="player-name" id="opponentName">Đối thủ</span>
+                        <span class="player-score" id="opponentScore">0</span>
+                    </div>
+                    <div class="game-area">
+                        <div class="board-frame opponent-frame">
+                            <canvas id="opponentBoard" width="200" height="400"></canvas>
+                            <div class="waiting-overlay" id="waitingOverlay">
+                                <p>Đang chờ...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile Controls -->
+            <div class="mobile-controls" id="mobileControls">
+                <div class="control-row">
+                    <button class="control-btn" id="btnRotate">↻</button>
+                    <button class="control-btn" id="btnHold">HOLD</button>
+                </div>
+                <div class="control-row">
+                    <button class="control-btn" id="btnLeft">←</button>
+                    <button class="control-btn" id="btnDown">↓</button>
+                    <button class="control-btn" id="btnRight">→</button>
+                </div>
+                <div class="control-row">
+                    <button class="control-btn wide" id="btnDrop">DROP</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div class="modal" id="gameOverModal">
+        <div class="modal-content">
+            <div class="modal-icon" id="modalIcon">🎉</div>
+            <h2 class="modal-title" id="modalTitle">Game Over</h2>
+            <p class="modal-message" id="modalMessage">Điểm: 0</p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="exitGameBtn">Thoát</button>
+                <button class="btn btn-primary" id="playAgainBtn">Chơi lại</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Countdown Overlay -->
+    <div class="countdown-overlay hidden" id="countdownOverlay">
+        <div class="countdown-number" id="countdownNumber">3</div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="tetris.js"></script>
+    <script src="online.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
